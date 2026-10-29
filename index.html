@@ -1,0 +1,1793 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>기억의 숲 - 나만의 디지털 자서전</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Google Fonts: Noto Serif KR for book feeling & Pretendard/Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Pretendard', '-apple-system', 'sans-serif'],
+            serif: ['Nanum Myeongjo', 'serif'],
+          },
+          colors: {
+            book: {
+              bg: '#FAF7F2',
+              card: '#FFFFFF',
+              primary: '#3F352E',
+              accent: '#8C6843',
+              gold: '#C5A059',
+              muted: '#7A7269',
+              border: '#E8E1D5',
+              dark: '#1C1917'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* 인쇄 및 PDF 내보내기 전용 스타일 */
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #printBookArea, #printBookArea * {
+        visibility: visible;
+      }
+      #printBookArea {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        background: white !important;
+      }
+      .page-break {
+        page-break-after: always;
+        break-after: page;
+      }
+      .no-print {
+        display: none !important;
+      }
+    }
+
+    /* 스크롤바 유무로 인한 화면 좌우 덜컹거림(Layout Shift) 방지 */
+    html {
+      scrollbar-gutter: stable;
+      overflow-y: scroll;
+    }
+
+    /* 감성적인 종이 질감 */
+    .paper-texture {
+      background-color: #FAF8F5;
+      background-image: radial-gradient(#E5DFD3 0.75px, transparent 0.75px);
+      background-size: 16px 16px;
+    }
+
+    /* 책 펼침 그림자 효과 */
+    .book-shadow {
+      box-shadow: -15px 0 35px rgba(0,0,0,0.06), 0 20px 30px -10px rgba(63,53,46,0.12);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 5px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #D1C7B8;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="bg-book-bg text-book-primary font-sans min-h-screen flex flex-col antialiased selection:bg-amber-100">
+
+  <!-- 상단 네비게이션 헤더 -->
+  <header class="sticky top-0 z-40 bg-book-bg/90 backdrop-blur-md border-b border-book-border transition-all">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('feed')">
+        <div class="w-10 h-10 rounded-full bg-book-accent/15 flex items-center justify-center text-book-accent border border-book-accent/30 shadow-sm">
+          <i data-lucide="book-open" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <span class="font-serif font-bold text-lg text-book-primary tracking-tight">기억의 숲</span>
+          <span class="text-xs block text-book-muted tracking-widest font-sans font-medium">나만의 디지털 자서전</span>
+        </div>
+      </div>
+
+      <!-- 상단 탭 버튼 -->
+      <nav class="flex items-center space-x-1 sm:space-x-2">
+        <button id="navFeedBtn" onclick="switchTab('feed')" class="px-3 py-2 rounded-lg text-sm font-medium transition flex items-center gap-1.5 text-book-accent bg-amber-50/80">
+          <i data-lucide="compass" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">오늘의 질문</span>
+        </button>
+        <button id="navWriteBtn" onclick="openWriteModal()" class="px-3 py-2 rounded-lg text-sm font-medium transition flex items-center gap-1.5 hover:bg-stone-200/50 text-stone-700">
+          <i data-lucide="pen-tool" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">새 글쓰기</span>
+        </button>
+        <button id="navChaptersBtn" onclick="switchTab('chapters')" class="px-3 py-2 rounded-lg text-sm font-medium transition flex items-center gap-1.5 hover:bg-stone-200/50 text-stone-700">
+          <i data-lucide="library" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">나의 서재</span>
+          <span id="entryCountBadge" class="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-stone-200 text-stone-800">0</span>
+        </button>
+        <button id="navPublishBtn" onclick="switchTab('publish')" class="ml-2 px-3.5 py-2 rounded-lg text-sm font-medium text-white bg-book-accent hover:bg-amber-800 transition flex items-center gap-1.5 shadow-sm">
+          <i data-lucide="printer" class="w-4 h-4"></i>
+          <span>책 출판/인쇄</span>
+        </button>
+      </nav>
+    </div>
+    <!-- 기기 간 실시간 동기화 상태 바 -->
+    <div class="bg-amber-50/80 border-t border-book-border/60 px-4 sm:px-6 py-1.5 text-[11px] text-stone-600 flex flex-wrap items-center justify-between gap-2 max-w-6xl mx-auto">
+      <div class="flex items-center gap-2">
+        <span id="syncStatusDot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span id="syncStatusText" class="font-medium">동기화 준비 완료</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-stone-500">내 자서전 동기화 코드:</span>
+        <code id="userSyncIdDisplay" class="bg-white px-2 py-0.5 rounded border border-book-border text-[11px] font-mono font-bold text-book-accent select-all">확인 중...</code>
+        <button onclick="copySyncId()" class="hover:text-book-accent underline text-[10px] font-medium" title="클립보드에 복사">코드 복사</button>
+        <span class="text-stone-300">|</span>
+        <button onclick="openSyncCodeModal()" class="px-2 py-0.5 rounded bg-white hover:bg-stone-100 border border-book-border text-[10px] text-stone-700 font-medium transition">
+          스마트폰/다른 기기 연결
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 메인 콘텐츠 영역 -->
+  <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 pb-20">
+
+    <!-- 1. 오늘의 질문 & 데일리 피드 탭 -->
+    <section id="feedTab" class="space-y-8">
+      
+      <!-- 오늘의 하이라이트 배너 카드 -->
+      <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#382F27] to-[#54463A] text-white p-6 sm:p-8 shadow-xl">
+        <div class="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
+          <i data-lucide="feather" class="w-64 h-64"></i>
+        </div>
+        <div class="relative z-10 max-w-2xl space-y-3">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-white/15 text-amber-200 tracking-wide">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+            <span>오늘 당신에게 건네는 기억의 질문</span>
+          </div>
+          <h2 id="todayQuestionText" class="text-xl sm:text-2xl md:text-3xl font-serif font-bold leading-relaxed">
+            "어릴 적 골목길이나 동네에서 해질녘까지 함께 뛰어놀던 친구들의 이름을 기억하시나요?"
+          </h2>
+          <p id="todayQuestionDesc" class="text-stone-300 text-sm leading-relaxed">
+            시간이 흘러도 기억 속에 은은히 반짝이는 유년 시절의 노을과 따뜻했던 친구들과의 기억을 기록해보세요.
+          </p>
+          <div class="pt-3 flex flex-wrap items-center gap-3">
+            <button onclick="writeForCurrentDailyQuestion()" class="px-5 py-2.5 rounded-xl bg-book-gold hover:bg-amber-500 text-stone-900 font-medium text-sm transition flex items-center gap-2 shadow-md">
+              <i data-lucide="edit-3" class="w-4 h-4"></i>
+              <span>이 질문에 답하여 기록하기</span>
+            </button>
+            <button onclick="refreshDailyQuestion()" class="px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm transition flex items-center gap-1.5">
+              <i data-lucide="shuffle" class="w-4 h-4"></i>
+              <span>다른 질문 보기</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 인생 챕터별 질문 카테고리 -->
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-lg font-serif font-bold text-book-primary">생애 주기별 질문 탐색</h3>
+            <p class="text-xs text-book-muted">기록하고 싶은 인생의 장(Chapter)을 골라 이야기를 시작하세요.</p>
+          </div>
+          <div class="text-xs text-book-accent font-medium">총 <span id="totalQuestionsCount">40</span>개의 질문</div>
+        </div>
+
+        <!-- 챕터 필터 알약 버튼 -->
+        <div class="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+          <button onclick="filterQuestions('all')" class="chapter-btn active px-4 py-1.5 rounded-full text-xs font-medium border border-book-border bg-book-accent text-white whitespace-nowrap">전체 질문</button>
+          <button onclick="filterQuestions('childhood')" class="chapter-btn px-4 py-1.5 rounded-full text-xs font-medium border border-book-border bg-white text-stone-600 hover:bg-stone-50 whitespace-nowrap">1장: 어린 시절 & 고향</button>
+          <button onclick="filterQuestions('youth')" class="chapter-btn px-4 py-1.5 rounded-full text-xs font-medium border border-book-border bg-white text-stone-600 hover:bg-stone-50 whitespace-nowrap">2장: 청춘과 학창시절</button>
+          <button onclick="filterQuestions('love')" class="chapter-btn px-4 py-1.5 rounded-full text-xs font-medium border border-book-border bg-white text-stone-600 hover:bg-stone-50 whitespace-nowrap">3장: 사랑, 결혼, 그리고 가족</button>
+          <button onclick="filterQuestions('work')" class="chapter-btn px-4 py-1.5 rounded-full text-xs font-medium border border-book-border bg-white text-stone-600 hover:bg-stone-50 whitespace-nowrap">4장: 일터와 치열했던 도전</button>
+          <button onclick="filterQuestions('wisdom')" class="chapter-btn px-4 py-1.5 rounded-full text-xs font-medium border border-book-border bg-white text-stone-600 hover:bg-stone-50 whitespace-nowrap">5장: 인생의 깨달음 & 후손에게</button>
+        </div>
+
+        <!-- 질문 카드 그리드 -->
+        <div id="questionsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- JS로 동적 생성 -->
+        </div>
+      </div>
+
+      <!-- 최근 작성된 나의 기록 프리뷰 섹션 -->
+      <div class="pt-6 border-t border-book-border space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-serif font-bold text-book-primary">최근 차곡차곡 쌓인 나의 글</h3>
+          <button onclick="switchTab('chapters')" class="text-xs text-book-accent hover:underline flex items-center gap-1 font-medium">
+            전체 서재 보기 <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+        <div id="recentEntriesFeed" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- JS로 최근 기록 카드 렌더링 -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. 나의 서재 및 타임라인 탭 -->
+    <section id="chaptersTab" class="hidden space-y-6">
+      <div class="bg-white rounded-2xl p-6 border border-book-border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-serif font-bold text-book-primary">나의 자서전 서재</h2>
+          <p class="text-xs text-book-muted mt-1">지금까지 <span id="libraryStatCount" class="font-bold text-book-accent">0</span>편의 기억을 기록하셨습니다. 책으로 엮기에 충분한 여정입니다.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="relative">
+            <input id="searchInput" type="text" oninput="handleSearch()" placeholder="기록 검색 (제목, 내용, 태그)..." class="w-48 sm:w-64 pl-9 pr-3 py-2 text-xs rounded-xl border border-book-border focus:outline-none focus:ring-1 focus:ring-book-accent bg-stone-50">
+            <i data-lucide="search" class="w-4 h-4 text-stone-400 absolute left-3 top-2.5"></i>
+          </div>
+          <button onclick="openWriteModal()" class="px-4 py-2 rounded-xl bg-book-accent hover:bg-amber-800 text-white text-xs font-medium flex items-center gap-1.5 transition">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>기록 추가</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 챕터별 필터 및 정렬 -->
+      <div class="flex items-center justify-between flex-wrap gap-2 text-xs">
+        <div class="flex items-center gap-2">
+          <span class="text-book-muted font-medium">챕터 분류:</span>
+          <select id="chapterFilterSelect" onchange="filterEntriesByChapter(this.value)" class="bg-white border border-book-border rounded-lg px-2.5 py-1.5 text-stone-700">
+            <option value="all">전체 챕터 보기</option>
+            <option value="childhood">1장: 어린 시절 & 고향</option>
+            <option value="youth">2장: 청춘과 학창시절</option>
+            <option value="love">3장: 사랑과 가족</option>
+            <option value="work">4장: 도전과 일</option>
+            <option value="wisdom">5장: 인생의 교훈</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-book-muted font-medium">정렬:</span>
+          <select id="sortOrderSelect" onchange="sortEntries(this.value)" class="bg-white border border-book-border rounded-lg px-2.5 py-1.5 text-stone-700">
+            <option value="timeline">연대기 순 (과거 → 현재)</option>
+            <option value="newest">최근 작성 순</option>
+            <option value="chapter">챕터 번호 순</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 기록 리스트 / 책 목차 뷰 -->
+      <div id="entriesListContainer" class="space-y-4">
+        <!-- JS 렌더링 -->
+      </div>
+    </section>
+
+    <!-- 3. 책 출판 및 인쇄 프리뷰 탭 -->
+    <section id="publishTab" class="hidden space-y-8">
+      
+      <!-- 출판 컨트롤 패널 (인쇄 시 숨겨짐) -->
+      <div class="bg-white rounded-2xl p-6 border border-book-border shadow-sm no-print">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div class="space-y-1">
+            <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">책 출판 지원 스튜디오</span>
+            <h2 class="text-2xl font-serif font-bold text-book-primary">세상에 단 하나뿐인 나의 자서전 완성하기</h2>
+            <p class="text-xs text-book-muted">작성된 기록들을 모아 실제 출판 인쇄소에 맡기거나 PDF 전자책으로 보관할 수 있는 레이아웃으로 가공합니다.</p>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3">
+            <button onclick="toggleCoverCustomizer()" class="px-4 py-2.5 rounded-xl border border-book-border hover:bg-stone-50 text-stone-700 text-xs font-medium flex items-center gap-1.5 transition">
+              <i data-lucide="palette" class="w-4 h-4"></i>
+              <span>표지 & 책 정보 편집</span>
+            </button>
+            <input type="file" id="importJsonInput" accept=".json" onchange="importJSONBackup(event)" class="hidden">
+            <button onclick="document.getElementById('importJsonInput').click()" class="px-3.5 py-2.5 rounded-xl border border-book-border hover:bg-stone-50 text-stone-700 text-xs font-medium flex items-center gap-1.5 transition" title="저장된 백업 파일 불러오기">
+              <i data-lucide="upload" class="w-4 h-4"></i>
+              <span>데이터 불러오기</span>
+            </button>
+            <button onclick="exportJSONBackup()" class="px-3.5 py-2.5 rounded-xl border border-book-border hover:bg-stone-50 text-stone-700 text-xs font-medium flex items-center gap-1.5 transition" title="원고 데이터 안전 백업">
+              <i data-lucide="download" class="w-4 h-4"></i>
+              <span>데이터 백업</span>
+            </button>
+            <button onclick="printBook()" class="px-5 py-2.5 rounded-xl bg-book-primary hover:bg-stone-800 text-white text-xs font-medium flex items-center gap-2 shadow-lg transition">
+              <i data-lucide="printer" class="w-4 h-4"></i>
+              <span>PDF 저장 / 책 인쇄하기</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 표지 커스터마이저 모달형 아코디언 -->
+        <div id="coverCustomizerPanel" class="mt-6 pt-6 border-t border-book-border grid grid-cols-1 md:grid-cols-3 gap-4 hidden">
+          <div>
+            <label class="block text-xs font-medium text-stone-700 mb-1">책 제목</label>
+            <input id="bookTitleInput" type="text" value="나의 삶, 나의 이야기" oninput="updateBookMeta()" class="w-full text-xs rounded-lg border border-book-border p-2 bg-stone-50">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-stone-700 mb-1">부제 (Subtitle)</label>
+            <input id="bookSubtitleInput" type="text" value="바람과 세월이 남겨준 기억의 편린들" oninput="updateBookMeta()" class="w-full text-xs rounded-lg border border-book-border p-2 bg-stone-50">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-stone-700 mb-1">저자명 (나의 이름)</label>
+            <input id="bookAuthorInput" type="text" value="김영식" oninput="updateBookMeta()" class="w-full text-xs rounded-lg border border-book-border p-2 bg-stone-50">
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-xs font-medium text-stone-700 mb-1">발간사 / 헌정사 (서문)</label>
+            <textarea id="bookDedicationInput" rows="2" oninput="updateBookMeta()" class="w-full text-xs rounded-lg border border-book-border p-2 bg-stone-50">이 책을 사랑하는 나의 가족들과 지난 시간 함께 울고 웃었던 소중한 인연들에게 바칩니다.</textarea>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-stone-700 mb-1">표지 컬러 테마</label>
+            <div class="flex items-center gap-3 mt-1.5">
+              <button onclick="setCoverTheme('classic')" class="w-7 h-7 rounded-full bg-[#2C241E] border-2 border-amber-300 ring-2 ring-transparent focus:ring-amber-400"></button>
+              <button onclick="setCoverTheme('navy')" class="w-7 h-7 rounded-full bg-[#1B2A4A] border-2 border-stone-200"></button>
+              <button onclick="setCoverTheme('forest')" class="w-7 h-7 rounded-full bg-[#22392E] border-2 border-stone-200"></button>
+              <button onclick="setCoverTheme('cream')" class="w-7 h-7 rounded-full bg-[#EFE8DD] border-2 border-stone-400"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 실제 인쇄/PDF 대상 북 프리뷰 컨테이너 -->
+      <div id="printBookArea" class="max-w-3xl mx-auto space-y-12">
+
+        <!-- 1. 책 표지 (Book Cover) -->
+        <div id="bookCoverCard" class="w-full aspect-[1/1.414] bg-[#2C241E] text-amber-100 rounded-lg p-10 sm:p-16 flex flex-col justify-between book-shadow border border-stone-700 page-break relative overflow-hidden transition-colors">
+          <div class="absolute inset-4 border border-amber-400/30 pointer-events-none rounded"></div>
+          
+          <div class="space-y-4 pt-8">
+            <span class="text-xs uppercase tracking-widest text-amber-300/80 font-sans block">Memoir of Life</span>
+            <div class="w-12 h-0.5 bg-amber-400/60"></div>
+          </div>
+
+          <div class="my-auto text-center space-y-4 px-4">
+            <h1 id="previewBookTitle" class="text-3xl sm:text-4xl md:text-5xl font-serif font-bold tracking-tight text-white leading-tight">
+              나의 삶, 나의 이야기
+            </h1>
+            <p id="previewBookSubtitle" class="text-sm sm:text-base font-serif italic text-amber-200/90 font-light">
+              바람과 세월이 남겨준 기억의 편린들
+            </p>
+          </div>
+
+          <div class="text-center pb-6 space-y-1">
+            <p class="text-xs tracking-widest font-sans text-amber-300/70">지은이</p>
+            <p id="previewBookAuthor" class="text-lg font-serif tracking-widest font-bold text-white">김 영 식</p>
+            <p class="text-[10px] text-amber-200/40 font-mono pt-2">숲길 출판 스튜디오 디지털 에디션</p>
+          </div>
+        </div>
+
+        <!-- 2. 머리말 / 헌정사 페이지 -->
+        <div class="w-full aspect-[1/1.414] bg-[#FDFBF7] text-book-primary rounded-lg p-12 sm:p-16 flex flex-col justify-between book-shadow border border-book-border page-break">
+          <div class="space-y-8 max-w-lg mx-auto my-auto text-center">
+            <h3 class="font-serif text-xl font-bold tracking-widest text-stone-800">머 리 말</h3>
+            <div class="w-8 h-0.5 bg-book-accent/40 mx-auto"></div>
+            <p id="previewBookDedication" class="font-serif text-stone-700 text-sm sm:text-base leading-loose whitespace-pre-line text-justify">
+              이 책을 사랑하는 나의 가족들과 지난 시간 함께 울고 웃었던 소중한 인연들에게 바칩니다.
+              
+              바쁘게 지나온 시간 속에서 잊힐 뻔했던 기억의 조각들을 하나씩 건져 올려 엮었습니다. 내 삶의 모든 계절이 당신들에게 따뜻한 위로이자 지혜가 되기를 소망합니다.
+            </p>
+            <div class="pt-8 text-right font-serif text-xs text-stone-500">
+              저자 <span id="previewDedicationAuthor">김영식</span> 올림
+            </div>
+          </div>
+          <div class="text-center font-serif text-xs text-stone-400">1</div>
+        </div>
+
+        <!-- 3. 목차 페이지 (Table of Contents) -->
+        <div class="w-full aspect-[1/1.414] bg-[#FDFBF7] text-book-primary rounded-lg p-12 sm:p-16 flex flex-col justify-between book-shadow border border-book-border page-break">
+          <div>
+            <div class="text-center space-y-2 mb-10">
+              <h3 class="font-serif text-2xl font-bold tracking-widest text-stone-800">목 차</h3>
+              <p class="text-xs font-serif text-stone-400 italic">Contents</p>
+            </div>
+            
+            <div id="printTocList" class="space-y-3 font-serif text-xs sm:text-sm max-w-xl mx-auto divide-y divide-stone-200/60">
+              <!-- JS 목차 렌더링 -->
+            </div>
+          </div>
+          <div class="text-center font-serif text-xs text-stone-400">2</div>
+        </div>
+
+        <!-- 4. 본문 장/절 렌더링 영역 (동적 생성) -->
+        <div id="printBookBodyEntries" class="space-y-12">
+          <!-- JS에서 각 글을 페이지 단위로 렌더링 -->
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 글쓰기 / 편집 모달 -->
+  <div id="writeModal" class="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-white rounded-2xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl border border-book-border my-auto space-y-5">
+      
+      <div class="flex items-center justify-between pb-3 border-b border-book-border">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-amber-100 text-book-accent flex items-center justify-center">
+            <i data-lucide="feather" class="w-4 h-4"></i>
+          </div>
+          <h3 id="modalTitle" class="font-serif font-bold text-lg text-book-primary">기억 한 페이지 쓰기</h3>
+        </div>
+        <button onclick="closeWriteModal()" class="text-stone-400 hover:text-stone-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- 선택된 질문 프롬프트 표시 -->
+      <div id="modalQuestionBox" class="bg-amber-50/70 border border-amber-200/80 rounded-xl p-3.5 space-y-1">
+        <span class="text-[10px] font-bold text-book-accent tracking-wider uppercase">회고 프롬프트</span>
+        <p id="modalQuestionText" class="text-xs sm:text-sm font-serif font-medium text-stone-800">
+          오늘의 질문이 여기에 표시됩니다.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <!-- 챕터 분류 -->
+        <div>
+          <label class="block text-xs font-semibold text-stone-700 mb-1">인생 챕터</label>
+          <select id="entryChapterInput" class="w-full text-xs rounded-xl border border-book-border p-2.5 bg-stone-50 focus:ring-1 focus:ring-book-accent">
+            <option value="childhood">1장: 어린 시절 & 고향</option>
+            <option value="youth">2장: 청춘과 학창시절</option>
+            <option value="love">3장: 사랑과 가족</option>
+            <option value="work">4장: 도전과 일</option>
+            <option value="wisdom">5장: 인생의 교훈</option>
+          </select>
+        </div>
+
+        <!-- 시대 / 대략 연도 -->
+        <div>
+          <label class="block text-xs font-semibold text-stone-700 mb-1">시절 (연도/나이)</label>
+          <input id="entryYearInput" type="text" placeholder="예: 1978년, 20대 초반" class="w-full text-xs rounded-xl border border-book-border p-2.5 bg-stone-50 focus:ring-1 focus:ring-book-accent">
+        </div>
+
+        <!-- 감정/태그 -->
+        <div>
+          <label class="block text-xs font-semibold text-stone-700 mb-1">키워드 / 태그</label>
+          <input id="entryTagInput" type="text" placeholder="예: 첫사랑, 이사, 졸업" class="w-full text-xs rounded-xl border border-book-border p-2.5 bg-stone-50 focus:ring-1 focus:ring-book-accent">
+        </div>
+      </div>
+
+      <!-- 글 제목 -->
+      <div>
+        <label class="block text-xs font-semibold text-stone-700 mb-1">소제목 (이야기 제목)</label>
+        <input id="entryTitleInput" type="text" placeholder="마음에 남는 소제목을 지어주세요" class="w-full text-sm font-serif font-bold rounded-xl border border-book-border p-3 bg-stone-50 focus:ring-1 focus:ring-book-accent">
+      </div>
+
+      <!-- 본문 작성 -->
+      <div>
+        <div class="flex items-center justify-between mb-1">
+          <label class="block text-xs font-semibold text-stone-700">이야기 본문</label>
+          <div class="flex items-center gap-1.5 sm:gap-2">
+            <!-- STT 음성 인식 마이크 버튼 -->
+            <button id="sttMicBtn" type="button" onclick="toggleSpeechRecognition()" class="text-xs px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-medium flex items-center gap-1.5 transition border border-stone-200">
+              <i id="sttMicIcon" data-lucide="mic" class="w-3.5 h-3.5 text-stone-600"></i>
+              <span id="sttMicText">말로 구술하기(STT)</span>
+            </button>
+            <!-- AI 보조 버튼 -->
+            <button id="aiRefineBtn" onclick="aiRefineDraft()" class="text-xs px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-medium flex items-center gap-1 transition">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-700"></i>
+              <span>AI 문체 다듬기</span>
+            </button>
+            <button id="aiExpandBtn" onclick="aiExpandIdeas()" class="text-xs px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-medium flex items-center gap-1 transition">
+              <i data-lucide="lightbulb" class="w-3.5 h-3.5 text-stone-500"></i>
+              <span>회상 힌트</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- STT 녹음 중 인디케이터 배너 -->
+        <div id="sttListeningBar" class="hidden mb-2 px-3 py-1.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-xs flex items-center justify-between animate-pulse">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+            <span class="font-medium">목소리를 듣고 글자로 적는 중입니다... 편안하게 말씀하세요.</span>
+          </div>
+          <button onclick="toggleSpeechRecognition()" class="text-rose-800 font-bold hover:underline">녹음 종료</button>
+        </div>
+
+        <textarea id="entryContentInput" rows="8" placeholder="편안한 마음으로 기억을 적어 내려가거나, 상단의 '말로 구술하기' 마이크를 켜고 이야기해 보세요. 맞춤법이나 정돈되지 않은 구술이라도 'AI 문체 다듬기'가 아름다운 문학작품으로 완성해 드립니다..." class="w-full text-sm font-serif leading-relaxed rounded-xl border border-book-border p-3.5 bg-stone-50 focus:ring-1 focus:ring-book-accent"></textarea>
+      </div>
+
+      <!-- 사진 첨부 (로컬 이미지) -->
+      <div>
+        <label class="block text-xs font-semibold text-stone-700 mb-1">추억의 사진 첨부 (선택)</label>
+        <div class="flex items-center gap-3">
+          <input type="file" id="entryPhotoInput" accept="image/*" onchange="handlePhotoUpload(event)" class="text-xs text-stone-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-stone-100 file:text-stone-700 hover:file:bg-stone-200">
+          <div id="photoPreviewWrap" class="hidden relative w-12 h-12 rounded-lg overflow-hidden border border-stone-200">
+            <img id="entryPhotoPreview" src="" alt="preview" class="w-full h-full object-cover">
+            <button onclick="removeAttachedPhoto()" class="absolute inset-0 bg-black/40 text-white flex items-center justify-center text-xs opacity-0 hover:opacity-100 transition">✕</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI 피드백/제안 알림 박스 (동적 노출) -->
+      <div id="aiSuggestionBox" class="hidden bg-stone-100 border border-stone-300 rounded-xl p-3.5 text-xs space-y-2">
+        <div class="flex items-center justify-between text-stone-700 font-semibold">
+          <span class="flex items-center gap-1.5"><i data-lucide="wand-2" class="w-3.5 h-3.5 text-amber-600"></i> <span id="aiSuggestionTitle">AI 에디터 제안</span></span>
+          <button onclick="closeAiSuggestion()" class="text-stone-400 hover:text-stone-600">✕</button>
+        </div>
+        <p id="aiSuggestionText" class="text-stone-700 font-serif leading-relaxed whitespace-pre-line"></p>
+        <div id="aiSuggestionActions" class="flex justify-end gap-2 pt-1">
+          <button onclick="applyAiSuggestion()" class="px-3 py-1.5 rounded-lg bg-book-accent text-white hover:bg-amber-800 transition">이 문체로 본문 교체하기</button>
+        </div>
+      </div>
+
+      <!-- 하단 버튼 바 -->
+      <div class="pt-3 border-t border-book-border flex items-center justify-between">
+        <button id="deleteEntryBtn" onclick="deleteCurrentEntry()" class="hidden px-3 py-2 rounded-xl text-xs text-red-600 hover:bg-red-50 transition flex items-center gap-1">
+          <i data-lucide="trash-2" class="w-4 h-4"></i>
+          <span>삭제하기</span>
+        </button>
+        <div class="flex items-center gap-2 ml-auto">
+          <button onclick="closeWriteModal()" class="px-4 py-2.5 rounded-xl border border-book-border text-xs text-stone-600 hover:bg-stone-100 transition">
+            취소
+          </button>
+          <button onclick="saveEntry()" class="px-5 py-2.5 rounded-xl bg-book-accent hover:bg-amber-800 text-white text-xs font-medium flex items-center gap-1.5 shadow-md transition">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            <span id="saveBtnText">자서전에 저장</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 간단 토스트 메시지 -->
+  <div id="toastMessage" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-stone-900 text-white text-xs px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-2 pointer-events-none">
+    <i data-lucide="info" class="w-4 h-4 text-amber-400"></i>
+    <span id="toastText">안내 메시지</span>
+  </div>
+
+  <!-- 기기 간 동기화 코드 연결 모달 -->
+  <div id="syncCodeModal" class="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-book-border space-y-4">
+      <div class="flex items-center justify-between pb-2 border-b border-book-border">
+        <div class="flex items-center gap-2">
+          <i data-lucide="smartphone" class="w-5 h-5 text-book-accent"></i>
+          <h3 class="font-serif font-bold text-base text-book-primary">스마트폰 & PC 자서전 연결</h3>
+        </div>
+        <button onclick="closeSyncCodeModal()" class="text-stone-400 hover:text-stone-600">✕</button>
+      </div>
+      <p class="text-xs text-stone-600 leading-relaxed">
+        스마트폰과 PC에서 동일한 동기화 코드를 사용하면 작성한 자서전 글과 책 설정이 자동으로 함께 보입니다.
+      </p>
+      <div class="space-y-3 bg-stone-50 p-3.5 rounded-xl border border-stone-200">
+        <div>
+          <label class="block text-[11px] font-semibold text-stone-700 mb-1">현재 사용 중인 동기화 코드</label>
+          <div class="flex items-center gap-2">
+            <input id="currentSyncCodeInput" type="text" readonly class="w-full text-xs font-mono bg-white p-2 rounded-lg border border-stone-300 text-book-accent font-bold">
+            <button onclick="copySyncId()" class="px-3 py-2 bg-stone-200 hover:bg-stone-300 rounded-lg text-xs font-medium shrink-0">복사</button>
+          </div>
+        </div>
+        <div>
+          <label class="block text-[11px] font-semibold text-stone-700 mb-1">다른 기기의 코드로 연결하기 (가져오기)</label>
+          <input id="connectNewSyncCodeInput" type="text" placeholder="예: 스마트폰 화면에 뜬 코드 붙여넣기" class="w-full text-xs font-mono p-2 rounded-lg border border-stone-300 bg-white">
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-1">
+        <button onclick="closeSyncCodeModal()" class="px-3 py-2 text-xs border border-stone-300 rounded-xl hover:bg-stone-50">닫기</button>
+        <button onclick="applyNewSyncCode()" class="px-4 py-2 text-xs bg-book-accent text-white rounded-xl font-medium hover:bg-amber-800">이 코드로 연결하기</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==========================================
+    // UI 전역 헬퍼 (모듈 스크립트 실행 전 즉시 등록)
+    // ==========================================
+    window.updateSyncUIStatus = function(isConnected, text, uid = '') {
+      const dot = document.getElementById('syncStatusDot');
+      const label = document.getElementById('syncStatusText');
+      const uidDisplay = document.getElementById('userSyncIdDisplay');
+      const syncInput = document.getElementById('currentSyncCodeInput');
+
+      if (dot) {
+        dot.className = isConnected 
+          ? "w-2 h-2 rounded-full bg-emerald-500 animate-pulse" 
+          : "w-2 h-2 rounded-full bg-amber-500";
+      }
+      if (label) label.innerText = text;
+      if (uidDisplay) {
+        uidDisplay.innerText = uid || window._currentSessionSyncId || 'MEMOIR-READY';
+      }
+      if (syncInput) {
+        syncInput.value = uid || window._currentSessionSyncId || '';
+      }
+    };
+  </script>
+
+  <!-- Firebase SDK 모듈 스크립트 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'memoir-app-prod';
+    let db = null;
+    let auth = null;
+    let currentUser = null;
+    let isCloudReady = false;
+    let unsubscribeSync = null;
+    let isSelfSaving = false; // 내 기기에서 저장 중일 때 onSnapshot 중복 렌더링 루프 방지
+
+    // 기기 고유 ID 또는 사용자가 지정한 동기화 ID 관리
+    function getStoredSyncId() {
+      if (window._currentSessionSyncId) return window._currentSessionSyncId;
+      const stored = sessionStorage.getItem('memoir_sync_key');
+      if (stored) return stored;
+      // 난수 기반의 기억하기 쉬운 8자리 서재 코드
+      const randomKey = 'MEMOIR-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+      sessionStorage.setItem('memoir_sync_key', randomKey);
+      return randomKey;
+    }
+
+    let activeSyncKey = getStoredSyncId();
+    window._currentSessionSyncId = activeSyncKey;
+
+    async function initCloudSync() {
+      // 1) 즉시 화면에 동기화 ID 표시 (연결 중 멈춤 방지)
+      window.updateSyncUIStatus(true, "로컬 & 실시간 동기화 준비 완료", activeSyncKey);
+
+      try {
+        if (typeof __firebase_config === 'undefined') {
+          console.info("로컬 모드로 자서전이 안전하게 구동됩니다.");
+          return;
+        }
+
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+
+        // RULE 3: Auth Before Queries
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+
+        currentUser = auth.currentUser;
+        if (!currentUser) return;
+
+        isCloudReady = true;
+        setupCloudDocListener();
+
+      } catch (err) {
+        console.warn("클라우드 초기화 안내:", err);
+        window.updateSyncUIStatus(true, "로컬 캐시 안전 보관 중", activeSyncKey);
+      }
+    }
+
+    function setupCloudDocListener() {
+      if (!isCloudReady || !db || !auth.currentUser) return;
+      if (unsubscribeSync) unsubscribeSync();
+
+      const docKey = window._currentSessionSyncId || activeSyncKey;
+      // Firestore 보안 규칙 규격에 맞는 짝수(6개) 경로: artifacts/{appId}/public/data/{subCollection}/{docId}
+      const memoirDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'synced_memoirs', 'sync_' + docKey);
+
+      unsubscribeSync = onSnapshot(memoirDocRef, (docSnap) => {
+        // 내가 방금 저장해서 발생한 변경 이벤트면 중복 DOM 리렌더링 건너뜀 (떨림 방지)
+        if (isSelfSaving) {
+          isSelfSaving = false;
+          return;
+        }
+
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data && data.entries && Array.isArray(data.entries)) {
+            window.onCloudDataReceived(data);
+          }
+        } else {
+          // 원격에 없으면 현재 내용 최초 푸시 (인증 완료 확인)
+          if (auth.currentUser) {
+            window.syncCurrentDataToCloud();
+          }
+        }
+      }, (error) => {
+        console.warn("동기화 청취 상태:", error.message || error);
+      });
+    }
+
+    // 다른 동기화 코드로 교체할 때
+    window.switchSyncChannel = function(newKey) {
+      activeSyncKey = newKey;
+      window._currentSessionSyncId = newKey;
+      sessionStorage.setItem('memoir_sync_key', newKey);
+      localStorage.setItem('memoir_sync_key', newKey);
+      window.updateSyncUIStatus(true, "새 기기와 연결 중...", newKey);
+      if (isCloudReady) {
+        setupCloudDocListener();
+      }
+    };
+
+    // 클라우드로 데이터 전송
+    window.saveToCloudStorage = async function(entriesData, metaData) {
+      if (!isCloudReady || !db || !auth.currentUser) return;
+      try {
+        isSelfSaving = true; // 플래그 설정하여 직후 들어오는 onSnapshot 스킵
+        const docKey = window._currentSessionSyncId || activeSyncKey;
+        const memoirDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'synced_memoirs', 'sync_' + docKey);
+        await setDoc(memoirDocRef, {
+          entries: entriesData,
+          meta: metaData,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+        setTimeout(() => { isSelfSaving = false; }, 800);
+      } catch (err) {
+        isSelfSaving = false;
+        console.warn("클라우드 저장 알림 (로컬 저장 우선 유지):", err.message || err);
+      }
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initCloudSync();
+    });
+  </script>
+
+  <script>
+    // ==========================================
+    // 1. 상태 관리 & 초기 데이터
+    // ==========================================
+    const CHAPTER_NAMES = {
+      childhood: "1장: 어린 시절 & 고향",
+      youth: "2장: 청춘과 학창시절",
+      love: "3장: 사랑과 가족",
+      work: "4장: 도전과 일",
+      wisdom: "5장: 인생의 교훈"
+    };
+
+    const QUESTIONS_DATA = [
+      { id: 1, chapter: 'childhood', text: "어릴 적 골목길이나 동네에서 해질녘까지 함께 뛰어놀던 친구들의 이름을 기억하시나요?", desc: "골목길에 저녁 밥 짓는 냄새가 퍼지며 어머니가 이름을 부르던 그때 그 순간을 떠올려보세요." },
+      { id: 2, chapter: 'childhood', text: "내 어린 시절 가장 포근하고 안전하다고 느꼈던 고향집의 특별한 장소는 어디였나요?", desc: "다락방, 마루 끝, 장독대 옆, 따뜻한 온돌방 아랫목 등 당신의 비밀 아지트를 기록해보세요." },
+      { id: 3, chapter: 'childhood', text: "할머니, 할아버지 혹은 부모님의 따뜻했던 손길이나 특별한 음식 냄새는 무엇인가요?", desc: "유년기의 오감을 깨우는 맛과 온기를 기록해 보세요." },
+      { id: 4, chapter: 'youth', text: "학창 시절, 세상을 다 가진 것처럼 가슴 뛰었던 소풍이나 축제, 여행의 하루는 어떠했나요?", desc: "풋풋했던 시절 친구들과의 싱그러운 웃음소리를 담아보세요." },
+      { id: 5, chapter: 'youth', text: "내 10대나 20대에 가장 뜨겁게 몰두했거나 나를 뒤흔들었던 취미, 책, 혹은 음악은 무엇인가요?", desc: "나를 규정했던 젊은 날의 열정과 감성을 적어보세요." },
+      { id: 6, chapter: 'love', text: "평생의 짝을 처음 만났던 날의 공기와 마음에 일렁였던 첫인상은 어떠했나요?", desc: "두 사람이 마주했던 첫 순간의 떨림과 이야기를 기록합니다." },
+      { id: 7, chapter: 'love', text: "내 아이를 처음 품에 안았던 날의 벅찬 숨결과 가슴 뭉클했던 다짐은 무엇이었나요?", desc: "부모로서 세상과 마주하던 가장 숭고한 날의 기록입니다." },
+      { id: 8, chapter: 'work', text: "사회에 첫 발을 내딛고 첫 월급을 탔을 때, 누구를 떠올리며 무엇을 하셨나요?", desc: "스스로의 힘으로 세상과 부딪히기 시작했던 청년 시절의 자부심을 떠올려보세요." },
+      { id: 9, chapter: 'work', text: "내 삶에서 가장 험난했던 고비나 시련은 무엇이었고, 그것을 어떻게 이겨내셨나요?", desc: "포기하지 않고 묵묵히 버텨온 당신의 끈기와 지혜가 담긴 용기 있는 기록입니다." },
+      { id: 10, chapter: 'wisdom', text: "지금까지 살아오며 배운 것 중, 자녀와 다음 세대에게 꼭 남겨주고 싶은 단 하나의 지혜는 무엇인가요?", desc: "살아가며 마주할 수많은 질문들에 대한 당신만의 든든한 등불을 적어주세요." }
+    ];
+
+    let currentDailyQuestion = QUESTIONS_DATA[0];
+    let activeChapterFilter = 'all';
+    let editingEntryId = null;
+    let attachedPhotoBase64 = null;
+    let lastAiSuggestedText = null;
+    let activeTab = 'feed'; // 현재 보고 있는 탭 추적
+
+    let bookMeta = {
+      title: "나의 삶, 나의 이야기",
+      subtitle: "바람과 세월이 남겨준 기억의 편린들",
+      author: "김영식",
+      dedication: "이 책을 사랑하는 나의 가족들과 지난 시간 함께 울고 웃었던 소중한 인연들에게 바칩니다.",
+      coverTheme: "classic"
+    };
+
+    let entries = [
+      {
+        id: 'sample-1',
+        chapter: 'childhood',
+        year: '1968년 가을',
+        title: '해질녘 골목길과 밥 짓는 냄새',
+        content: '해질 무렵이면 골목마다 굴뚝에서 연기가 피어오르고 구수한 된장찌개 냄새가 번지곤 했다. 구슬치기와 딱지치기를 하다가 "영식아, 밥 먹어라!" 부르시던 어머니의 목소리가 들리면 흙 묻은 바지를 털며 집으로 내달리던 그 길목이 지금도 눈앞에 선연하다.',
+        tag: '유년시절, 골목길, 어머니',
+        photo: null,
+        createdAt: new Date().toISOString()
+      }
+    ];
+
+    // 클립보드 복사 함수
+    function copySyncId() {
+      const uidText = document.getElementById('userSyncIdDisplay').innerText;
+      if (!uidText) return;
+      
+      const tempInput = document.createElement('textarea');
+      tempInput.value = uidText;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      try {
+        document.execCommand('copy');
+        showToast("동기화 코드가 복사되었습니다! 다른 기기에 붙여넣으세요.");
+      } catch (err) {
+        showToast("코드 복사에 실패했습니다.");
+      }
+      document.body.removeChild(tempInput);
+    }
+
+    // 동기화 코드 모달 열기/닫기
+    function openSyncCodeModal() {
+      const modal = document.getElementById('syncCodeModal');
+      const code = document.getElementById('userSyncIdDisplay').innerText;
+      document.getElementById('currentSyncCodeInput').value = code;
+      document.getElementById('connectNewSyncCodeInput').value = '';
+      modal.classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeSyncCodeModal() {
+      document.getElementById('syncCodeModal').classList.add('hidden');
+    }
+
+    function applyNewSyncCode() {
+      const targetCode = document.getElementById('connectNewSyncCodeInput').value.trim();
+      if (!targetCode) {
+        showToast("연결할 동기화 코드를 입력해주세요.");
+        return;
+      }
+      if (typeof window.switchSyncChannel === 'function') {
+        window.switchSyncChannel(targetCode);
+      }
+      closeSyncCodeModal();
+      showToast(`동기화 코드 [${targetCode}]에 성공적으로 연결되었습니다!`);
+    }
+
+    // 클라우드 데이터 수신 처리
+    window.onCloudDataReceived = function(cloudData) {
+      if (cloudData.entries && Array.isArray(cloudData.entries)) {
+        // 데이터가 실제로 변경되었을 때만 렌더링
+        if (JSON.stringify(entries) === JSON.stringify(cloudData.entries)) return;
+        entries = cloudData.entries;
+        localStorage.setItem('memoir_entries_v2', JSON.stringify(entries));
+      }
+      if (cloudData.meta) {
+        bookMeta = { ...bookMeta, ...cloudData.meta };
+        localStorage.setItem('memoir_book_meta_v2', JSON.stringify(bookMeta));
+      }
+      syncMetaInputs();
+      updateEntryCounts();
+      renderCurrentActiveView();
+    };
+
+    // 현재 활성화된 탭에 필요한 부분만 효율적으로 렌더링
+    function renderCurrentActiveView() {
+      updateEntryCounts();
+      if (activeTab === 'feed') {
+        renderRecentFeed();
+      } else if (activeTab === 'chapters') {
+        renderChaptersList();
+      } else if (activeTab === 'publish') {
+        renderPrintBookView();
+      }
+    }
+
+    // 클라우드로 현재 상태 전송
+    window.syncCurrentDataToCloud = function() {
+      if (typeof window.saveToCloudStorage === 'function') {
+        window.saveToCloudStorage(entries, bookMeta);
+      }
+    };
+
+    function initPersistedData() {
+      // 로컬 스토리지에 캐시된 원고 및 메타데이터 복원
+      const cachedEntries = localStorage.getItem('memoir_entries_v2');
+      if (cachedEntries) {
+        try {
+          const parsed = JSON.parse(cachedEntries);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            entries = parsed;
+          }
+        } catch (e) {
+          console.warn("로컬 캐시 파싱 안내:", e);
+        }
+      }
+
+      const cachedMeta = localStorage.getItem('memoir_book_meta_v2');
+      if (cachedMeta) {
+        try {
+          bookMeta = { ...bookMeta, ...JSON.parse(cachedMeta) };
+        } catch (e) {
+          console.warn("메타데이터 파싱 안내:", e);
+        }
+      }
+
+      const code = window._currentSessionSyncId || 'MEMOIR-READY';
+      window.updateSyncUIStatus(true, "작성 및 편집 가능", code);
+      syncMetaInputs();
+    }
+
+    function syncMetaInputs() {
+      const titleInput = document.getElementById('bookTitleInput');
+      const subtitleInput = document.getElementById('bookSubtitleInput');
+      const authorInput = document.getElementById('bookAuthorInput');
+      const dedicationInput = document.getElementById('bookDedicationInput');
+
+      if (titleInput) titleInput.value = bookMeta.title;
+      if (subtitleInput) subtitleInput.value = bookMeta.subtitle;
+      if (authorInput) authorInput.value = bookMeta.author;
+      if (dedicationInput) dedicationInput.value = bookMeta.dedication;
+
+      if (bookMeta.coverTheme) {
+        setCoverTheme(bookMeta.coverTheme, false);
+      }
+    }
+
+    function saveEntriesToStorage() {
+      try {
+        localStorage.setItem('memoir_entries_v2', JSON.stringify(entries));
+      } catch (e) {
+        console.warn("localStorage quota or error", e);
+      }
+      window.syncCurrentDataToCloud();
+    }
+
+    function saveMetaToStorage() {
+      try {
+        localStorage.setItem('memoir_book_meta_v2', JSON.stringify(bookMeta));
+      } catch (e) {
+        console.warn("localStorage quota or error", e);
+      }
+      window.syncCurrentDataToCloud();
+    }
+
+    // ==========================================
+    // 2. 탭 전환 및 네비게이션
+    // ==========================================
+    function switchTab(tabId) {
+      activeTab = tabId;
+      const tabs = ['feed', 'chapters', 'publish'];
+      tabs.forEach(t => {
+        const el = document.getElementById(t + 'Tab');
+        if (el) el.classList.add('hidden');
+      });
+
+      const targetTab = document.getElementById(tabId + 'Tab');
+      if (targetTab) targetTab.classList.remove('hidden');
+
+      // 탭 버튼 스타일 갱신
+      const btnFeed = document.getElementById('navFeedBtn');
+      const btnChapters = document.getElementById('navChaptersBtn');
+      const btnPublish = document.getElementById('navPublishBtn');
+
+      [btnFeed, btnChapters].forEach(b => {
+        if (b) {
+          b.className = "px-3 py-2 rounded-lg text-sm font-medium transition flex items-center gap-1.5 hover:bg-stone-200/50 text-stone-700";
+        }
+      });
+
+      if (tabId === 'feed' && btnFeed) {
+        btnFeed.className = "px-3 py-2 rounded-lg text-sm font-medium transition flex items-center gap-1.5 text-book-accent bg-amber-50/80";
+        renderRecentFeed();
+      } else if (tabId === 'chapters' && btnChapters) {
+        btnChapters.className = "px-3 py-2 rounded-lg text-sm font-medium transition flex items-center gap-1.5 text-book-accent bg-amber-50/80";
+        renderChaptersList();
+      } else if (tabId === 'publish') {
+        renderPrintBookView();
+      }
+
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      lucide.createIcons();
+    }
+
+    // ==========================================
+    // 3. 질문 피드 & 목록 렌더링
+    // ==========================================
+    function refreshDailyQuestion() {
+      const remaining = QUESTIONS_DATA.filter(q => q.id !== currentDailyQuestion.id);
+      currentDailyQuestion = remaining[Math.floor(Math.random() * remaining.length)] || QUESTIONS_DATA[0];
+      document.getElementById('todayQuestionText').innerText = `"${currentDailyQuestion.text}"`;
+      document.getElementById('todayQuestionDesc').innerText = currentDailyQuestion.desc;
+    }
+
+    function writeForCurrentDailyQuestion() {
+      openWriteModal(currentDailyQuestion);
+    }
+
+    function filterQuestions(chapter) {
+      activeChapterFilter = chapter;
+      document.querySelectorAll('.chapter-btn').forEach(btn => {
+        btn.classList.remove('bg-book-accent', 'text-white');
+        btn.classList.add('bg-white', 'text-stone-600');
+      });
+      if (event && event.currentTarget) {
+        event.currentTarget.classList.remove('bg-white', 'text-stone-600');
+        event.currentTarget.classList.add('bg-book-accent', 'text-white');
+      }
+      renderQuestionsGrid();
+    }
+
+    function renderQuestionsGrid() {
+      const grid = document.getElementById('questionsGrid');
+      if (!grid) return;
+      grid.innerHTML = '';
+
+      const filtered = activeChapterFilter === 'all' 
+        ? QUESTIONS_DATA 
+        : QUESTIONS_DATA.filter(q => q.chapter === activeChapterFilter);
+
+      document.getElementById('totalQuestionsCount').innerText = filtered.length;
+
+      filtered.forEach(q => {
+        const card = document.createElement('div');
+        card.className = "bg-white p-5 rounded-2xl border border-book-border hover:border-book-accent/40 hover:shadow-md transition flex flex-col justify-between group";
+        card.innerHTML = `
+          <div class="space-y-2">
+            <span class="inline-block text-[10px] font-bold text-book-accent bg-amber-50 px-2.5 py-0.5 rounded-full">${CHAPTER_NAMES[q.chapter] || '회고'}</span>
+            <h4 class="font-serif font-bold text-sm text-stone-800 leading-snug group-hover:text-book-accent transition">${q.text}</h4>
+            <p class="text-xs text-stone-500 line-clamp-2 leading-relaxed">${q.desc}</p>
+          </div>
+          <div class="pt-4 mt-2 border-t border-stone-100 flex items-center justify-between">
+            <span class="text-[11px] text-stone-400">기록 질문 #${q.id}</span>
+            <button onclick="openWriteModalWithQuestionId(${q.id})" class="text-xs font-medium text-book-accent hover:underline flex items-center gap-1">
+              답하기 <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+      lucide.createIcons();
+    }
+
+    function openWriteModalWithQuestionId(qid) {
+      const q = QUESTIONS_DATA.find(item => item.id === qid);
+      openWriteModal(q);
+    }
+
+    function renderRecentFeed() {
+      const container = document.getElementById('recentEntriesFeed');
+      if (!container) return;
+      container.innerHTML = '';
+
+      if (entries.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full py-8 text-center bg-white rounded-2xl border border-stone-200">
+            <p class="text-xs text-stone-500 font-serif">아직 작성된 자서전 글이 없습니다. 오늘의 질문에 답해보세요!</p>
+          </div>
+        `;
+        return;
+      }
+
+      const recents = [...entries].reverse().slice(0, 4);
+      recents.forEach(entry => {
+        const card = document.createElement('div');
+        card.className = "bg-white p-5 rounded-2xl border border-book-border hover:shadow-md transition space-y-3 cursor-pointer";
+        card.onclick = () => openEditModal(entry.id);
+        card.innerHTML = `
+          <div class="flex items-center justify-between text-xs text-stone-400 font-serif">
+            <span>${CHAPTER_NAMES[entry.chapter] || '회고'}</span>
+            <span class="text-book-accent font-sans font-medium">${entry.year || ''}</span>
+          </div>
+          <h4 class="font-serif font-bold text-base text-stone-800">${entry.title}</h4>
+          <p class="font-serif text-xs text-stone-600 line-clamp-2 leading-relaxed">${entry.content}</p>
+        `;
+        container.appendChild(card);
+      });
+      lucide.createIcons();
+    }
+
+    function updateEntryCounts() {
+      const count = entries.length;
+      const countBadge = document.getElementById('entryCountBadge');
+      const statCount = document.getElementById('libraryStatCount');
+      if (countBadge) countBadge.innerText = count;
+      if (statCount) statCount.innerText = count;
+    }
+
+    // ==========================================
+    // 4. 글쓰기 모달 & STT(음성인식) & 저장
+    // ==========================================
+    let recognition = null;
+    let isListening = false;
+
+    function initSpeechRecognition() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) return null;
+
+      const sr = new SpeechRecognition();
+      sr.lang = 'ko-KR';
+      sr.continuous = true;
+      sr.interimResults = false;
+
+      sr.onresult = (event) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            transcript += event.results[i][0].transcript + ' ';
+          }
+        }
+        if (transcript) {
+          const textarea = document.getElementById('entryContentInput');
+          textarea.value = textarea.value ? textarea.value.trim() + ' ' + transcript.trim() : transcript.trim();
+        }
+      };
+
+      sr.onerror = (event) => {
+        console.warn("STT Error:", event.error);
+        stopSpeechRecognition();
+        showToast("음성 인식에 문제가 발생했습니다. 다시 마이크를 눌러주세요.");
+      };
+
+      sr.onend = () => {
+        if (isListening) {
+          stopSpeechRecognition();
+        }
+      };
+
+      return sr;
+    }
+
+    function toggleSpeechRecognition() {
+      if (!recognition) {
+        recognition = initSpeechRecognition();
+        if (!recognition) {
+          showToast("현재 브라우저는 음성 인식(STT) 기능을 지원하지 않습니다. Chrome 브라우저를 권장합니다.");
+          return;
+        }
+      }
+
+      if (!isListening) {
+        try {
+          recognition.start();
+          isListening = true;
+          document.getElementById('sttListeningBar').classList.remove('hidden');
+          document.getElementById('sttMicText').innerText = "말씀 중지";
+          document.getElementById('sttMicBtn').classList.add('bg-rose-100', 'text-rose-700', 'border-rose-300');
+          showToast("음성 구술이 시작되었습니다. 편안하게 말씀하세요.");
+        } catch (e) {
+          console.error(e);
+        }
+      } else {
+        stopSpeechRecognition();
+      }
+    }
+
+    function stopSpeechRecognition() {
+      if (recognition && isListening) {
+        recognition.stop();
+      }
+      isListening = false;
+      document.getElementById('sttListeningBar').classList.add('hidden');
+      document.getElementById('sttMicText').innerText = "말로 구술하기(STT)";
+      document.getElementById('sttMicBtn').classList.remove('bg-rose-100', 'text-rose-700', 'border-rose-300');
+    }
+
+    function openWriteModal(questionObj = null) {
+      editingEntryId = null;
+      attachedPhotoBase64 = null;
+      lastAiSuggestedText = null;
+
+      document.getElementById('modalTitle').innerText = "기억 한 페이지 쓰기";
+      document.getElementById('saveBtnText').innerText = "자서전에 저장";
+      document.getElementById('deleteEntryBtn').classList.add('hidden');
+      closeAiSuggestion();
+
+      if (questionObj) {
+        document.getElementById('modalQuestionBox').classList.remove('hidden');
+        document.getElementById('modalQuestionText').innerText = questionObj.text;
+        document.getElementById('entryChapterInput').value = questionObj.chapter || 'childhood';
+        document.getElementById('entryTitleInput').value = questionObj.text.replace(/[\?\"\']/g, '');
+      } else {
+        document.getElementById('modalQuestionBox').classList.add('hidden');
+        document.getElementById('entryTitleInput').value = '';
+      }
+
+      document.getElementById('entryYearInput').value = '';
+      document.getElementById('entryTagInput').value = '';
+      document.getElementById('entryContentInput').value = '';
+      document.getElementById('photoPreviewWrap').classList.add('hidden');
+      document.getElementById('entryPhotoInput').value = '';
+
+      document.getElementById('writeModal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function openEditModal(entryId) {
+      const entry = entries.find(e => String(e.id) === String(entryId));
+      if (!entry) {
+        showToast("수정할 기록을 찾을 수 없습니다.");
+        return;
+      }
+
+      editingEntryId = entry.id;
+      attachedPhotoBase64 = entry.photo || null;
+      lastAiSuggestedText = null;
+
+      document.getElementById('modalTitle').innerText = "기억 수정하기";
+      document.getElementById('saveBtnText').innerText = "수정사항 저장";
+      document.getElementById('deleteEntryBtn').classList.remove('hidden');
+      document.getElementById('modalQuestionBox').classList.add('hidden');
+      closeAiSuggestion();
+
+      document.getElementById('entryChapterInput').value = entry.chapter || 'childhood';
+      document.getElementById('entryYearInput').value = entry.year || '';
+      document.getElementById('entryTagInput').value = entry.tag || '';
+      document.getElementById('entryTitleInput').value = entry.title || '';
+      document.getElementById('entryContentInput').value = entry.content || '';
+
+      const photoWrap = document.getElementById('photoPreviewWrap');
+      const photoImg = document.getElementById('entryPhotoPreview');
+      if (entry.photo) {
+        photoImg.src = entry.photo;
+        photoWrap.classList.remove('hidden');
+      } else {
+        photoWrap.classList.add('hidden');
+      }
+
+      document.getElementById('writeModal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeWriteModal() {
+      stopSpeechRecognition();
+      document.getElementById('writeModal').classList.add('hidden');
+      editingEntryId = null;
+    }
+
+    function handlePhotoUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        attachedPhotoBase64 = evt.target.result;
+        document.getElementById('entryPhotoPreview').src = attachedPhotoBase64;
+        document.getElementById('photoPreviewWrap').classList.remove('hidden');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function removeAttachedPhoto() {
+      attachedPhotoBase64 = null;
+      document.getElementById('entryPhotoInput').value = '';
+      document.getElementById('photoPreviewWrap').classList.add('hidden');
+    }
+
+    function saveEntry() {
+      const title = document.getElementById('entryTitleInput').value.trim();
+      const content = document.getElementById('entryContentInput').value.trim();
+      const chapter = document.getElementById('entryChapterInput').value;
+      const year = document.getElementById('entryYearInput').value.trim();
+      const tag = document.getElementById('entryTagInput').value.trim();
+
+      if (!title) {
+        showToast("이야기의 소제목을 적어주세요.");
+        return;
+      }
+      if (!content) {
+        showToast("이야기 본문 내용을 작성해주세요.");
+        return;
+      }
+
+      if (editingEntryId) {
+        const idx = entries.findIndex(e => e.id === editingEntryId);
+        if (idx !== -1) {
+          entries[idx] = {
+            ...entries[idx],
+            title,
+            content,
+            chapter,
+            year,
+            tag,
+            photo: attachedPhotoBase64
+          };
+          showToast("소중한 기억이 수정되었습니다.");
+        }
+      } else {
+        const newEntry = {
+          id: 'entry-' + Date.now(),
+          title,
+          content,
+          chapter,
+          year,
+          tag,
+          photo: attachedPhotoBase64,
+          createdAt: new Date().toISOString()
+        };
+        entries.push(newEntry);
+        showToast("새로운 기억이 자서전에 안전하게 보관되었습니다.");
+      }
+
+      closeWriteModal();
+      saveEntriesToStorage();
+      renderCurrentActiveView();
+    }
+
+    function deleteCurrentEntry() {
+      if (!editingEntryId) return;
+      entries = entries.filter(e => String(e.id) !== String(editingEntryId));
+      closeWriteModal();
+      saveEntriesToStorage();
+      renderCurrentActiveView();
+      showToast("해당 기록이 삭제되었습니다.");
+    }
+
+    function renderChaptersList() {
+      const container = document.getElementById('entriesListContainer');
+      if (!container) return;
+      container.innerHTML = '';
+
+      if (entries.length === 0) {
+        container.innerHTML = `
+          <div class="py-16 text-center bg-white rounded-2xl border border-book-border">
+            <i data-lucide="book-open" class="w-10 h-10 text-stone-300 mx-auto mb-3"></i>
+            <p class="font-serif text-stone-500 text-sm">아직 작성된 자서전 글이 없습니다.</p>
+            <p class="text-xs text-stone-400 mt-1">상단의 '기록 추가'나 오늘의 질문으로 첫 페이지를 열어보세요.</p>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      entries.forEach((entry, idx) => {
+        const card = document.createElement('div');
+        card.className = "bg-white p-6 rounded-2xl border border-book-border hover:shadow-md transition space-y-4";
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-4">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2 text-xs">
+                <span class="font-semibold text-book-accent">${CHAPTER_NAMES[entry.chapter] || '회고'}</span>
+                <span class="text-stone-300">•</span>
+                <span class="text-stone-500">${entry.year || '시절 미상'}</span>
+                ${entry.tag ? `<span class="bg-stone-100 text-stone-600 px-2 py-0.5 rounded text-[11px]">${entry.tag}</span>` : ''}
+              </div>
+              <h3 class="font-serif font-bold text-lg text-stone-900">${entry.title}</h3>
+            </div>
+            <button onclick="openEditModal('${entry.id}')" class="px-3 py-1.5 rounded-lg border border-stone-200 text-xs text-stone-600 hover:bg-stone-100 transition shrink-0 flex items-center gap-1">
+              <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+              <span>편집</span>
+            </button>
+          </div>
+
+          ${entry.photo ? `
+            <div class="w-32 h-24 rounded-lg overflow-hidden border border-stone-200 bg-stone-100">
+              <img src="${entry.photo}" alt="memory" class="w-full h-full object-cover">
+            </div>
+          ` : ''}
+
+          <p class="font-serif text-stone-700 text-sm leading-relaxed whitespace-pre-line line-clamp-3">
+            ${entry.content}
+          </p>
+        `;
+        container.appendChild(card);
+      });
+      lucide.createIcons();
+    }
+
+    // ==========================================
+    // 5. Gemini AI 회고 에디터 연동 (지수 백오프 및 오류 복구 완비)
+    // ==========================================
+    async function fetchGeminiWithRetry(payload, maxRetries = 3) {
+      const apiKey = "";
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+      let delay = 1000;
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) return text;
+          }
+        } catch (error) {
+          // Throttling 또는 네트워크 일시 장애 대응
+        }
+
+        // 지수 백오프 대기 후 재시도
+        if (attempt < maxRetries - 1) {
+          await new Promise(res => setTimeout(res, delay));
+          delay *= 2;
+        }
+      }
+      return null;
+    }
+
+    async function aiRefineDraft() {
+      const currentContent = document.getElementById('entryContentInput').value.trim();
+      const currentTitle = document.getElementById('entryTitleInput').value.trim();
+
+      if (!currentContent) {
+        showToast("다듬을 이야기 본문을 먼저 몇 줄 작성해주세요.");
+        return;
+      }
+
+      // UI 로딩 표시
+      const suggestionBox = document.getElementById('aiSuggestionBox');
+      const suggestionText = document.getElementById('aiSuggestionText');
+      const suggestionTitle = document.getElementById('aiSuggestionTitle');
+      const suggestionActions = document.getElementById('aiSuggestionActions');
+
+      suggestionTitle.innerText = "AI 문체 다듬는 중...";
+      suggestionText.innerHTML = `<span class="inline-flex items-center gap-2 text-stone-500"><i data-lucide="loader" class="w-4 h-4 animate-spin text-amber-600"></i> 문장을 정성껏 윤문하고 있습니다. 잠시만 기다려주세요...</span>`;
+      suggestionActions.classList.add('hidden');
+      suggestionBox.classList.remove('hidden');
+      lucide.createIcons();
+      showToast("AI 에디터가 자서전 문체로 문장을 다듬고 있습니다...");
+
+      const systemPrompt = "당신은 세계적인 자서전 전문 작가이자 따뜻한 수필가입니다. 사용자가 적은 기억의 단편이나 구술 초안을 받아, 원래의 사실과 진심을 해치지 않으면서 실제 출판물에 걸맞은 품격 있는 문학적 수필 어조(따뜻하고 담백한 경어체 또는 정갈한 회고체)로 다듬어주세요. 제목이나 불필요한 해설 인사말은 생략하고, 오직 다듬어진 본문 이야기 텍스트만 출력하세요.";
+      const userPrompt = `[소제목: ${currentTitle || '기억의 조각'}]\n\n[초안 원문]:\n${currentContent}`;
+
+      const payload = {
+        contents: [{ parts: [{ text: userPrompt }] }],
+        systemInstruction: { parts: [{ text: systemPrompt }] }
+      };
+
+      const refinedText = await fetchGeminiWithRetry(payload);
+
+      if (refinedText) {
+        lastAiSuggestedText = refinedText.trim();
+        suggestionTitle.innerText = "AI 에디터 문체 다듬기 제안";
+        suggestionText.innerText = lastAiSuggestedText;
+        suggestionActions.classList.remove('hidden');
+        lucide.createIcons();
+        showToast("문체 교정이 완료되었습니다! 제안을 확인해 보세요.");
+      } else {
+        // API 환경 제한 시 감성적 규칙 기반 폴백 처리
+        fallbackRefine(currentContent);
+      }
+    }
+
+    function fallbackRefine(content) {
+      const paragraphs = content.split('\n\n');
+      const refinedParagraphs = paragraphs.map(p => {
+        return p
+          .replace(/했다\./g, '했었다.')
+          .replace(/이다\./g, '이었다.')
+          .replace(/봤다\./g, '바라보았다.')
+          .replace(/좋았다\./g, '참으로 마음이 푸근했다.')
+          .replace(/생각난다\./g, '지금도 아련하게 떠오른다.');
+      });
+
+      lastAiSuggestedText = refinedParagraphs.join('\n\n') + "\n\n(※ 세월의 깊이를 담아 정갈한 회고체로 윤문한 원고입니다.)";
+      
+      const suggestionBox = document.getElementById('aiSuggestionBox');
+      const suggestionText = document.getElementById('aiSuggestionText');
+      const suggestionTitle = document.getElementById('aiSuggestionTitle');
+      const suggestionActions = document.getElementById('aiSuggestionActions');
+
+      suggestionTitle.innerText = "회고록 문체 추천 (정돈본)";
+      suggestionText.innerText = lastAiSuggestedText;
+      suggestionActions.classList.remove('hidden');
+      suggestionBox.classList.remove('hidden');
+      lucide.createIcons();
+      showToast("회고록 문체로 정리되었습니다. 확인 후 적용해 보세요.");
+    }
+
+    async function aiExpandIdeas() {
+      const chapter = document.getElementById('entryChapterInput').value;
+      const title = document.getElementById('entryTitleInput').value.trim() || '나의 기억';
+      const content = document.getElementById('entryContentInput').value.trim();
+
+      const suggestionBox = document.getElementById('aiSuggestionBox');
+      const suggestionText = document.getElementById('aiSuggestionText');
+      const suggestionTitle = document.getElementById('aiSuggestionTitle');
+      const suggestionActions = document.getElementById('aiSuggestionActions');
+
+      suggestionTitle.innerText = "회상 힌트 찾는 중...";
+      suggestionText.innerHTML = `<span class="inline-flex items-center gap-2 text-stone-500"><i data-lucide="loader" class="w-4 h-4 animate-spin text-amber-600"></i> 그 시절의 감각을 깨울 질문을 구성하고 있습니다...</span>`;
+      suggestionActions.classList.add('hidden');
+      suggestionBox.classList.remove('hidden');
+      lucide.createIcons();
+      showToast("회상에 도움이 되는 감각적 힌트를 생성 중입니다...");
+
+      const systemPrompt = "자서전 글쓰기 코치입니다. 사용자가 그 시절의 구체적인 감각(냄새, 소리, 사람들의 대사, 풍경, 당시 품었던 솔직한 마음)을 더 풍부하게 떠올릴 수 있도록 돕는 3가지 질문이나 힌트를 다정하고 짧게 번호 매겨 제시하세요.";
+      const userPrompt = `챕터: ${CHAPTER_NAMES[chapter]}, 이야기 제목: ${title}, 현재 적은 내용: ${content || '아직 작성 전'}`;
+
+      const payload = {
+        contents: [{ parts: [{ text: userPrompt }] }],
+        systemInstruction: { parts: [{ text: systemPrompt }] }
+      };
+
+      const hints = await fetchGeminiWithRetry(payload);
+
+      if (hints) {
+        lastAiSuggestedText = null;
+        suggestionTitle.innerText = "💡 회상 힌트 & 질문";
+        suggestionText.innerText = hints.trim();
+        suggestionActions.classList.add('hidden'); // 힌트는 본문 직접 교체 버튼 숨김
+        lucide.createIcons();
+      } else {
+        suggestionTitle.innerText = "💡 회상 힌트 & 질문";
+        suggestionText.innerText = "1. 그때 마당이나 방 안에 감돌던 계절의 공기나 냄새는 어떠했나요?\n2. 함께 있던 사람들의 표정이나 나누었던 짧은 한마디를 기억해 보세요.\n3. 지금의 내가 그 시절의 나를 다시 만난다면 어떤 말을 건네고 싶으신가요?";
+        suggestionActions.classList.add('hidden');
+        lucide.createIcons();
+      }
+    }
+
+    function applyAiSuggestion() {
+      if (lastAiSuggestedText) {
+        document.getElementById('entryContentInput').value = lastAiSuggestedText;
+        showToast("제안된 문체로 본문이 성공적으로 교체되었습니다.");
+      }
+      closeAiSuggestion();
+    }
+
+    function closeAiSuggestion() {
+      document.getElementById('aiSuggestionBox').classList.add('hidden');
+    }
+
+    // ==========================================
+    // 6. 책 출판 & 인쇄 (PDF) 뷰 렌더링
+    // ==========================================
+    function renderPrintBookView() {
+      // 1) 표지 및 서문 업데이트
+      document.getElementById('previewBookTitle').innerText = bookMeta.title;
+      document.getElementById('previewBookSubtitle').innerText = bookMeta.subtitle;
+      document.getElementById('previewBookAuthor').innerText = bookMeta.author;
+      document.getElementById('previewDedicationAuthor').innerText = bookMeta.author;
+      document.getElementById('previewBookDedication').innerText = bookMeta.dedication;
+
+      // 2) 목차 (TOC) 생성
+      const tocList = document.getElementById('printTocList');
+      tocList.innerHTML = '';
+
+      if (entries.length === 0) {
+        tocList.innerHTML = `<p class="py-4 text-center text-stone-400">아직 등록된 본문이 없습니다.</p>`;
+      } else {
+        entries.forEach((entry, idx) => {
+          const item = document.createElement('div');
+          item.className = "py-2.5 flex items-center justify-between text-stone-700";
+          item.innerHTML = `
+            <div class="flex items-center gap-3 truncate">
+              <span class="text-stone-400 font-mono text-xs w-6">${idx + 1}.</span>
+              <span class="font-medium truncate">${entry.title}</span>
+            </div>
+            <span class="text-stone-400 font-mono text-xs shrink-0 ml-4">${idx + 3} page</span>
+          `;
+          tocList.appendChild(item);
+        });
+      }
+
+      // 3) 본문 페이지 생성 (인쇄용 표준 레이아웃)
+      const bodyContainer = document.getElementById('printBookBodyEntries');
+      bodyContainer.innerHTML = '';
+
+      entries.forEach((entry, idx) => {
+        const pageEl = document.createElement('div');
+        pageEl.className = "w-full aspect-[1/1.414] bg-[#FDFBF7] text-book-primary rounded-lg p-12 sm:p-16 flex flex-col justify-between book-shadow border border-book-border page-break";
+        
+        pageEl.innerHTML = `
+          <div>
+            <!-- 상단 헤더 러닝 헤드 -->
+            <div class="flex items-center justify-between border-b border-stone-200 pb-3 text-xs text-stone-400 font-serif">
+              <span>${bookMeta.title}</span>
+              <span>${CHAPTER_NAMES[entry.chapter] || '회고록'}</span>
+            </div>
+
+            <!-- 본문 타이틀 영역 -->
+            <div class="pt-8 pb-6 space-y-2">
+              <div class="flex items-center gap-2 text-xs font-serif text-book-accent">
+                <span>제 ${idx + 1} 화</span>
+                <span>•</span>
+                <span>${entry.year || '기억의 시간'}</span>
+              </div>
+              <h2 class="text-2xl sm:text-3xl font-serif font-bold text-stone-900 leading-tight">
+                ${entry.title}
+              </h2>
+            </div>
+
+            <!-- 사진이 있는 경우 본문 상단 배치 -->
+            ${entry.photo ? `
+              <div class="mb-6 max-h-56 w-full rounded-lg overflow-hidden border border-stone-200 bg-stone-100 flex items-center justify-center">
+                <img src="${entry.photo}" alt="memory" class="w-full h-full object-cover">
+              </div>
+            ` : ''}
+
+            <!-- 본문 텍스트 (양면 서적 레이아웃) -->
+            <div class="font-serif text-stone-800 text-sm sm:text-base leading-loose whitespace-pre-line text-justify tracking-normal">
+              ${entry.content}
+            </div>
+          </div>
+
+          <!-- 하단 페이지 번호 -->
+          <div class="text-center font-serif text-xs text-stone-400 pt-6">
+            ${idx + 3}
+          </div>
+        `;
+
+        bodyContainer.appendChild(pageEl);
+      });
+    }
+
+    // 표지 테마 설정
+    function setCoverTheme(theme, notify = true) {
+      bookMeta.coverTheme = theme;
+      saveMetaToStorage();
+
+      const cover = document.getElementById('bookCoverCard');
+      if (cover) {
+        if (theme === 'classic') {
+          cover.style.backgroundColor = '#2C241E';
+          cover.style.color = '#FDE68A';
+        } else if (theme === 'navy') {
+          cover.style.backgroundColor = '#162238';
+          cover.style.color = '#E2E8F0';
+        } else if (theme === 'forest') {
+          cover.style.backgroundColor = '#1D3328';
+          cover.style.color = '#D1FAE5';
+        } else if (theme === 'cream') {
+          cover.style.backgroundColor = '#F5EFE6';
+          cover.style.color = '#382F27';
+        }
+      }
+      if (notify) showToast("표지 스타일이 적용되었습니다.");
+    }
+
+    function toggleCoverCustomizer() {
+      const panel = document.getElementById('coverCustomizerPanel');
+      panel.classList.toggle('hidden');
+    }
+
+    function updateBookMeta() {
+      bookMeta.title = document.getElementById('bookTitleInput').value.trim() || '나의 삶, 나의 이야기';
+      bookMeta.subtitle = document.getElementById('bookSubtitleInput').value.trim() || '';
+      bookMeta.author = document.getElementById('bookAuthorInput').value.trim() || '저자';
+      bookMeta.dedication = document.getElementById('bookDedicationInput').value.trim() || '';
+      saveMetaToStorage();
+      renderPrintBookView();
+    }
+
+    // 실제 인쇄 & 브라우저 PDF 저장 호출
+    function printBook() {
+      if (entries.length === 0) {
+        showToast("인쇄할 자서전 글이 없습니다. 먼저 글을 작성해주세요.");
+        return;
+      }
+      showToast("인쇄 창을 엽니다. 프린터 대상을 'PDF로 저장'으로 선택하시면 PDF 전자책이 생성됩니다.");
+      setTimeout(() => {
+        window.print();
+      }, 500);
+    }
+
+    // JSON 백업 다운로드
+    function exportJSONBackup() {
+      const data = {
+        meta: bookMeta,
+        entries: entries,
+        exportedAt: new Date().toISOString()
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `나의_자서전_원고_${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast("자서전 전체 원고 데이터가 파일로 안전하게 백업되었습니다.");
+    }
+
+    // 백업 JSON 파일 불러오기
+    function importJSONBackup(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (Array.isArray(parsed.entries)) {
+            entries = parsed.entries;
+            if (parsed.meta) {
+              bookMeta = { ...bookMeta, ...parsed.meta };
+            }
+            saveEntriesToStorage();
+            saveMetaToStorage();
+            syncMetaInputs();
+            updateEntryCounts();
+            renderRecentFeed();
+            renderChaptersList();
+            renderPrintBookView();
+            showToast("백업 파일에서 자서전 데이터를 성공적으로 복원했습니다!");
+          } else {
+            showToast("올바른 자서전 백업 파일 형식이 아닙니다.");
+          }
+        } catch (err) {
+          console.error(err);
+          showToast("파일을 읽는 중 오류가 발생했습니다.");
+        }
+        event.target.value = '';
+      };
+      reader.readAsText(file);
+    }
+
+    // ==========================================
+    // 7. 검색 & 필터링 & 유틸
+    // ==========================================
+    function handleSearch() {
+      const keyword = document.getElementById('searchInput').value.toLowerCase().trim();
+      if (!keyword) {
+        renderChaptersList();
+        return;
+      }
+
+      const filtered = entries.filter(e => 
+        e.title.toLowerCase().includes(keyword) || 
+        e.content.toLowerCase().includes(keyword) ||
+        (e.tag && e.tag.toLowerCase().includes(keyword)) ||
+        (e.year && e.year.toLowerCase().includes(keyword))
+      );
+
+      const container = document.getElementById('entriesListContainer');
+      container.innerHTML = '';
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="py-12 text-center text-stone-400 bg-white rounded-2xl border border-stone-200">
+            <p class="text-xs">"${keyword}" 검색 결과가 없습니다.</p>
+          </div>
+        `;
+        return;
+      }
+
+      // 재사용 렌더
+      filtered.forEach((entry, idx) => {
+        const card = document.createElement('div');
+        card.className = "bg-white p-5 rounded-2xl border border-book-border hover:shadow-md transition space-y-3";
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <h4 class="font-serif font-bold text-stone-900">${entry.title}</h4>
+            <span class="text-xs text-book-accent">${entry.year || ''}</span>
+          </div>
+          <p class="font-serif text-xs text-stone-600 line-clamp-3">${entry.content}</p>
+          <div class="flex justify-end gap-2">
+            <button onclick="openEditModal('${entry.id}')" class="text-xs text-stone-500 hover:text-stone-800">편집</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function filterEntriesByChapter(chapter) {
+      if (chapter === 'all') {
+        renderChaptersList();
+        return;
+      }
+      const filtered = entries.filter(e => e.chapter === chapter);
+      const container = document.getElementById('entriesListContainer');
+      container.innerHTML = '';
+      filtered.forEach((entry, idx) => {
+        const card = document.createElement('div');
+        card.className = "bg-white p-6 rounded-2xl border border-book-border space-y-3";
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <h4 class="font-serif font-bold text-stone-900">${entry.title}</h4>
+            <button onclick="openEditModal('${entry.id}')" class="text-xs text-stone-500 hover:underline">수정</button>
+          </div>
+          <p class="font-serif text-sm text-stone-700 leading-relaxed">${entry.content}</p>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function sortEntries(criteria) {
+      if (criteria === 'newest') {
+        entries.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      } else if (criteria === 'timeline') {
+        // 연대순
+        entries.sort((a, b) => (a.year || '').localeCompare(b.year || ''));
+      }
+      renderChaptersList();
+      renderPrintBookView();
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toastMessage');
+      const text = document.getElementById('toastText');
+      text.innerText = msg;
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+      setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 3500);
+    }
+
+    // 초기 화면 기동
+    window.onload = function() {
+      initPersistedData();
+      renderQuestionsGrid();
+      renderRecentFeed();
+      renderChaptersList();
+      renderPrintBookView();
+      updateEntryCounts();
+      lucide.createIcons();
+    };
+  </script>
+</body>
+</html>
